@@ -16,16 +16,25 @@
                      Margin="100,0,0,0" Text="{Binding RoomId}"/>
             <Button Content="获取弹幕" VerticalAlignment="Center" Height="22" Margin="10,0,0,0" Click="Button_Click"/>
         </StackPanel>
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="1" x:Name="showGrid">
+            <!--<Grid.Resources>
+                <Style TargetType="TextBox">
+                    <Style.Triggers>
+                        <Trigger Property="IsFocused" Value="false">
+                            <Setter Property="Background" Value="Green"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Resources>-->
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <ScrollViewer ScrollChanged="ScrollViewer_ScrollChanged">
+            <ScrollViewer Grid.Column="0" MouseLeave="ScrollViewer_MouseLeave">
                 <TextBox x:Name="danmuTextBox" TextWrapping="Wrap" Text="{Binding DanmuText}"/>
             </ScrollViewer>
-            <ScrollViewer Grid.Column="1">
-                <TextBox x:Name="gifTextBox" TextWrapping="Wrap" Text="{Binding GifText}"/>
+            <ScrollViewer Grid.Column="1" MouseLeave="ScrollViewer_MouseLeave_1">
+                <TextBox x:Name="gifTextBox" TextWrapping="Wrap" Text="{Binding GifText}" />
             </ScrollViewer>
         </Grid>
     </Grid>

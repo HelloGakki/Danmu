@@ -33,7 +33,19 @@ namespace DouyuDanmu
             _displayViewModel.LinkStart();
         }
 
-        private void ScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        //private void ScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        //{
+        //    //var control = sender as ScrollViewer;
+        //    //control.ScrollToEnd();
+        //}
+
+        private void ScrollViewer_MouseLeave(object sender, MouseEventArgs e)
+        {
+            var control = sender as ScrollViewer;
+            control.ScrollToEnd();
+        }
+
+        private void ScrollViewer_MouseLeave_1(object sender, MouseEventArgs e)
         {
             var control = sender as ScrollViewer;
             control.ScrollToEnd();

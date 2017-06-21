@@ -15,7 +15,7 @@ namespace DouyuDanmu.ViewModel
 {
     public class TcpDanmu : INotifyPropertyChanged
     {
-        private string _roomId, _danmuText,_gifText;
+        private string _roomId, _danmuText, _gifText;
         private string ip = "openbarrage.douyutv.com";
         private int port = 8601;
         //private TcpClient tcpClient;
@@ -106,47 +106,6 @@ namespace DouyuDanmu.ViewModel
         /// <returns></returns>
         public void LinkStart()
         {
-            // 链接斗鱼弹幕服务器
-            //tcpClient = new TcpClient();
-            //tcpClient.Connect(ip, port);
-            //if (tcpClient.Connected != true)
-            //    return tcpClient.Connected;
-
-            //NetworkStream networkStream = tcpClient.GetStream();
-            //// 发送登陆请求
-            //string sendMessage = string.Format(loginMessage, RoomId);
-            //byte[] buffer = StringConvert(sendMessage);
-            //byte[] reBuffer = new byte[4096];
-            //int readByte = 0;
-            //networkStream.Write(buffer, 0, buffer.Length);
-            //networkStream.Flush();
-            //// 获取服务器回复的信息（表示登陆成功
-            //try
-            //{
-            //    lock (networkStream)
-            //        readByte = networkStream.Read(reBuffer, 0, 4096);
-            //    if (readByte == -1)
-            //    {
-            //        MessageBox.Show("链接失败");
-            //        return false;
-            //    }
-            //    else
-            //        DanmuText = "链接成功\r\n";
-            //}
-            //catch (Exception e)
-            //{
-            //    MessageBox.Show(e.Message);
-            //    return false;
-            //}
-
-            //// 发送入组请求
-            //sendMessage = string.Format(joinGroupMessage, RoomId);
-            //buffer = StringConvert(sendMessage);
-            //networkStream.Write(buffer, 0, buffer.Length);
-            ////networkStream.Close();
-
-            //return true;
-
             DanmuText = "";
             DanmuText = "正在连接斗鱼服务器...\r\n";
             GifText = "";
@@ -161,25 +120,49 @@ namespace DouyuDanmu.ViewModel
         {
             var receiveStream = ar.AsyncState as NetworkStream;
             int receiveLength = receiveStream.EndRead(ar);
-            byte[] temp = receiveBuffer.Skip(12).Take(bufferLength - 1 - 12).ToArray(); // 获取正文内容的数组
-            string receiveString = Encoding.UTF8.GetString(temp, 0, bufferLength - 1 - 12);   // 获取正文字符串
+            //byte[] temp = receiveBuffer.Skip(12).Take(bufferLength - 1 - 12).ToArray(); // 获取正文内容的数组
+            //string receiveString = Encoding.UTF8.GetString(temp, 0, bufferLength - 1 - 12);   // 获取正文字符串
+            Regex regex = new Regex("type@=[\\w /@=\\u3002\\uff1b\\uff0c\\uff1a\\u201c\\u201d\\uff08\\uff09\\u3001\\uff1f\\u300a\\u300b\\u4e00-\\u9fa5]+"); 
+            string receiveString = Encoding.UTF8.GetString(receiveBuffer, 0, receiveLength);
+            MatchCollection matches = regex.Matches(receiveString); // 匹配type@=开头的字符串
+            foreach (Match match in matches)
+            {
+                Thread outputThread = new Thread(new ParameterizedThreadStart(StringOutput));
+                outputThread.Start(match.Value);
+                outputThread.IsBackground = true;
+            }
+            try
+            {
+                //BinaryReader br = new BinaryReader(receiveStream);
+                //int lengthByte = br.ReadInt32();
+                Array.Clear(receiveBuffer, 0, bufferLength);
+                receiveStream.BeginRead(receiveBuffer, 0, bufferLength, new AsyncCallback(ReceiveCallBack), receiveStream);
+            }
+            catch (Exception e)
+            {
+                DanmuText += e.Message + "错误1\r\n";
+            }
+        }
+
+        private void StringOutput(object value)
+        {
+            var receiveString = value as string;
             Dictionary<string, string> data = ReceiveDataDecode(receiveString);     // 获取键值对应的字典列表
             if (DanmuText.Length > 1024 * 20)
                 DanmuText = "";
             if (GifText.Length > 1024 * 20)
                 GifText = "";
-            try
+            if (data.ContainsKey("type"))
             {
-                if (data.ContainsKey("type"))
+                try
                 {
                     switch (data["type"])
                     {
                         case "loginres":
-                            new Thread(new ThreadStart(() => DanmuText += "进入房间:" + RoomId + "成功...\r\n")).Start();
-                            
+                            DanmuText += "进入房间:" + RoomId + "成功...\r\n";
                             break;
                         case "chatmsg":
-                            new Thread(new ThreadStart(() => DanmuText += "[弹幕]    " + data["nn"] + "[" + data["level"] + "]:  " + data["txt"] + "\r\n")).Start();
+                            DanmuText += "[弹幕]    " + data["nn"] + "[" + data["level"] + "]:  " + data["txt"] + "\r\n";
                             break;
                         case "keeplive":
                             //心跳消息，不做处理
@@ -193,31 +176,20 @@ namespace DouyuDanmu.ViewModel
                             {
                                 data.Add("hits", "1");
                             }
-                            new Thread(new ThreadStart(() => GifText += "[礼物]    " + data["nn"] + "[" + data["level"] + "] "
-                                 + "赠送礼物: " + data["gfid"] + " 数量: " + data["gfcnt"] + "连击: " + data["hits"] + "\r\n")).Start();
+                            GifText += "[礼物]    " + data["nn"] + "[" + data["level"] + "] "
+                                 + "赠送礼物: " + data["gfid"] + " 数量: " + data["gfcnt"] + "连击: " + data["hits"] + "\r\n";
                             break;
                         case "uenter":
-                            new Thread(new ThreadStart(() => DanmuText += "[进入]    " + data["nn"] + "[" + data["level"] + "] " + "进入房间\r\n")).Start();
+                            DanmuText += "[进入]    " + data["nn"] + "[" + data["level"] + "] " + "进入房间\r\n";
                             break;
                         default:
                             break;
                     }
                 }
-            }
-            catch
-            {
-
-            }
-            try
-            {
-                //BinaryReader br = new BinaryReader(receiveStream);
-                //int lengthByte = br.ReadInt32();
-                Array.Clear(receiveBuffer, 0, bufferLength);
-                receiveStream.BeginRead(receiveBuffer, 0, bufferLength, new AsyncCallback(ReceiveCallBack), receiveStream);
-            }
-            catch (Exception e)
-            {
-                DanmuText += e.Message + "错误1\r\n";
+                catch(Exception e)
+                {
+                   // GifText += e.Message; // 用于显示错误信息
+                }
             }
         }
 
@@ -324,83 +296,6 @@ namespace DouyuDanmu.ViewModel
             {
                 DanmuText += "链接发生错误ConnCallBack...:" + e.Message + "\r\n";
             }
-            //}
-
-            //public void GetDanmu()
-            //{
-            //    Thread getDanmuThread = new Thread(new ParameterizedThreadStart(GetDanmuHandler));
-            //    getDanmuThread.IsBackground = true;
-            //   // getDanmuThread.Start(tcpClient);
-            //}
-
-            //private void GetDanmuHandler(object tcpClient)
-            //{
-            //    var receiveCient = tcpClient as TcpClient;
-            //    NetworkStream networkStream = receiveCient.GetStream();
-            //    byte[] receiveBuffer = new byte[1024 * 4];
-            //    int readByte = 0;
-            //    string receiveMessage = "";
-            //    string nameAndText = "";
-            //    //"type@=chatmsg\\S+level@=\\d{1,3}"
-            //    Regex regex = new Regex("type@=chatmsg\\S+level@=\\d{1,3}");
-            //    Regex nameAndTextRegex = new Regex("nn@=\\S+/txt@=[^/]+");
-            //    MatchCollection matches;
-
-            //    KeepLive(); // 心跳链接
-            //    while (true)
-            //    {
-            //        try
-            //        {
-            //            readByte = networkStream.Read(receiveBuffer, 0, 1024 * 4);
-            //            matches = regex.Matches(Encoding.UTF8.GetString(receiveBuffer, 0, readByte));
-            //            if (readByte == -1)
-            //            {
-            //                //Dis
-            //                break;
-            //            }
-            //            else if (matches.Count > 0)
-            //            {
-            //                receiveMessage = "";
-            //                foreach (Match match in matches)
-            //                {
-            //                    //string nameAndText = nameAndTextRegex.Match(match.Value).Value;
-            //                    nameAndText = Regex.Replace(nameAndTextRegex.Match(match.Value).Value, "nn@=", "");
-            //                    nameAndText = Regex.Replace(nameAndText, "/txt@=", " :   ");
-            //                    receiveMessage += "[弹幕]：   " + nameAndText + "\r\n";
-            //                    //receiveMessage += match.Value + "\r\n";
-            //                }
-            //                //Thread updataThread = new Thread(new ThreadStart(() => DanmuText += receiveMessage));
-            //                //updataThread.IsBackground = true;
-            //                //updataThread.Start();
-            //                DanmuText += receiveMessage;
-            //            }
-            //        }
-            //        catch (Exception e)
-            //        {
-            //            MessageBox.Show(e.Message);
-            //            break;
-            //        }
-            //    }
-            //}
-
-            //private void KeepLive()
-            //{
-            //    System.Timers.Timer timer = new System.Timers.Timer(40000);
-            //    timer.Elapsed += Timer_Elapsed;
-            //    timer.Start();
-            //}
-
-            //private void Timer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
-            //{
-            //    //DanmuText = "";
-            //    DateTime startTime = TimeZone.CurrentTimeZone.ToLocalTime(new DateTime(1970, 1, 1, 0, 0, 0, 0));
-            //    DateTime nowTime = DateTime.Now;
-            //    string t = ((long)Math.Round((nowTime - startTime).TotalMilliseconds, MidpointRounding.AwayFromZero)).ToString();
-            //    NetworkStream keepLiveStream = tcpClient.GetStream();
-            //    string sendMessage = string.Format(keepLiveMessage, t);
-            //    byte[] buffer = StringConvert(sendMessage);
-            //    keepLiveStream.Write(buffer, 0, buffer.Length);
-            //}
         }
     }
 }
