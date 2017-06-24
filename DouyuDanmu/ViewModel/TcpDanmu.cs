@@ -27,7 +27,7 @@ namespace DouyuDanmu.ViewModel
         private string joinGroupMessage = "type@=joingroup/rid@={0}/gid@=-9999/";
         private string logoutMessage = "type@=logout/";
 
-        private int bufferLength = 1024;
+        private int bufferLength = 1024 * 2;
         private byte[] receiveBuffer = null;
         private byte[] sendBuffer = null;
 
@@ -119,20 +119,22 @@ namespace DouyuDanmu.ViewModel
         private void ReceiveCallBack(IAsyncResult ar)
         {
             var receiveStream = ar.AsyncState as NetworkStream;
-            int receiveLength = receiveStream.EndRead(ar);
-            //byte[] temp = receiveBuffer.Skip(12).Take(bufferLength - 1 - 12).ToArray(); // 获取正文内容的数组
-            //string receiveString = Encoding.UTF8.GetString(temp, 0, bufferLength - 1 - 12);   // 获取正文字符串
-            Regex regex = new Regex("type@=[\\w /@=\\u3002\\uff1b\\uff0c\\uff1a\\u201c\\u201d\\uff08\\uff09\\u3001\\uff1f\\u300a\\u300b\\u4e00-\\u9fa5]+"); 
-            string receiveString = Encoding.UTF8.GetString(receiveBuffer, 0, receiveLength);
-            MatchCollection matches = regex.Matches(receiveString); // 匹配type@=开头的字符串
-            foreach (Match match in matches)
-            {
-                Thread outputThread = new Thread(new ParameterizedThreadStart(StringOutput));
-                outputThread.Start(match.Value);
-                outputThread.IsBackground = true;
-            }
+
             try
             {
+                int receiveLength = receiveStream.EndRead(ar);
+                //byte[] temp = receiveBuffer.Skip(12).Take(bufferLength - 1 - 12).ToArray(); // 获取正文内容的数组
+                //string receiveString = Encoding.UTF8.GetString(temp, 0, bufferLength - 1 - 12);   // 获取正文字符串
+                Regex regex = new Regex("type@=[\\w /@=\\u3002\\uff1b\\uff0c\\uff1a\\u201c\\u201d\\uff08\\uff09\\u3001\\uff1f\\u300a\\u300b\\u4e00-\\u9fa5]+");
+                string receiveString = Encoding.UTF8.GetString(receiveBuffer, 0, receiveLength);
+                MatchCollection matches = regex.Matches(receiveString); // 匹配type@=开头的字符串
+                foreach (Match match in matches)
+                {
+                    Thread outputThread = new Thread(new ParameterizedThreadStart(StringOutput));
+                    outputThread.Start(match.Value);
+                    outputThread.IsBackground = true;
+                }
+
                 //BinaryReader br = new BinaryReader(receiveStream);
                 //int lengthByte = br.ReadInt32();
                 Array.Clear(receiveBuffer, 0, bufferLength);
@@ -140,7 +142,9 @@ namespace DouyuDanmu.ViewModel
             }
             catch (Exception e)
             {
-                DanmuText += e.Message + "错误1\r\n";
+                //DanmuText += e.Message + "错误1\r\n";
+                Array.Clear(receiveBuffer, 0, bufferLength);
+                receiveStream.BeginRead(receiveBuffer, 0, bufferLength, new AsyncCallback(ReceiveCallBack), receiveStream);
             }
         }
 
@@ -182,13 +186,15 @@ namespace DouyuDanmu.ViewModel
                         case "uenter":
                             DanmuText += "[进入]    " + data["nn"] + "[" + data["level"] + "] " + "进入房间\r\n";
                             break;
+                        case "rss":
+                            break;
                         default:
                             break;
                     }
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
-                   // GifText += e.Message; // 用于显示错误信息
+                    // GifText += e.Message; // 用于显示错误信息
                 }
             }
         }
